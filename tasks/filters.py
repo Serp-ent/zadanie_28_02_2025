@@ -2,10 +2,13 @@ import django_filters
 from tasks.models import Task
 
 
-# TODO: tests
 class TaskFilter(django_filters.FilterSet):
     username = django_filters.CharFilter(
         field_name="user__username",
+        lookup_expr="icontains",
+    )
+    nazwa = django_filters.CharFilter(
+        field_name="nazwa",
         lookup_expr="icontains",
     )
     opis = django_filters.CharFilter(
@@ -13,6 +16,17 @@ class TaskFilter(django_filters.FilterSet):
         lookup_expr="icontains",
     )
 
+    unassigned = django_filters.BooleanFilter(
+        method="filter_free_tasks",
+        label="Are free (Without user assigned)",
+    )
+
     class Meta:
         model = Task
-        fields = ["user", "status", "username", "opis"]
+        fields = ["id", "user", "status", 'nazwa', "username", "opis"]
+
+    def filter_free_tasks(self, queryset, name, value):
+        if value:
+            return queryset.filter(user__isnull=True)
+
+        return queryset.filter(user__isnull=False)

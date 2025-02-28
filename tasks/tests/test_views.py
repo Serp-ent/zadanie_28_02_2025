@@ -5,8 +5,6 @@ from django.contrib.auth.models import User
 from tasks.models import Task
 
 
-# TODO: tests for tasks filtering
-
 # TODO: tests for tasks history, filter for history only for given tasks, get how the tasks looked like in given time and to whom it was assigned to
 
 # TODO: tests for user login endpoint
