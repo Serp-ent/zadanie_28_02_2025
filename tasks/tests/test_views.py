@@ -159,11 +159,28 @@ def test_task_id_cannot_be_updated_in_full_update(task, anon_client):
 
 
 
+@pytest.mark.django_db
 def test_task_partial_update(task):
     # TODO
     pass
 
+@pytest.mark.django_db
 def test_task_full_update(task):
     # TODO:
     pass
 
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('task', ['task', 'another_task'], indirect=True)
+def test_task_detailed_view(task, anon_client):
+    url = reverse('task-detail', kwargs={'pk': task.id})
+
+    response = anon_client = anon_client.get(url)
+    responseJson = response.json()
+
+    assert response.status_code == status.HTTP_200_OK, "Invalid resposne from the server"
+    assert responseJson['id'] == task.id
+    assert responseJson['nazwa'] == task.nazwa
+    assert responseJson['opis'] == task.opis
+    assert responseJson['status'] == task.status
+    assert responseJson['user'] == task.user

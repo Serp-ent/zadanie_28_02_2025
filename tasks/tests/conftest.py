@@ -27,3 +27,6 @@ def auth_client(user1):
 @pytest.fixture
 def task():
     return Task.objects.create(nazwa="name")
+
+def another_task():
+    return Task.objects.create(nazwa="another_task")
