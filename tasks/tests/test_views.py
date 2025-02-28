@@ -1,0 +1,128 @@
+from django.urls import reverse
+import pytest
+from rest_framework import status
+from tasks.models import Task
+
+
+# TODO: tests that ID field of Task cannot be changed
+
+# TODO: tests for task updating
+
+# TODO: tests for tasks filtering
+
+# TODO: tests for tasks history, filter for history only for given tasks, get how the tasks looked like in given time and to whom it was assigned to
+
+# TODO: tests for user login endpoint
+# TODO: tests for user register endpoint
+# TODO: tests for user permissions (Admin, IsAssignedToTask)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "client",
+    ["auth_client", "anon_client"],
+    indirect=True,
+)
+def test_anyone_can_create_tasks_with_every_field(client):
+    url = reverse("task-list")
+    task_count = Task.objects.count()
+
+    response = client.post(
+        url,
+        data={
+            "nazwa": "taskName",
+            "opis": "opis1",
+            "status": "NOWY",
+        },
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    assert task_count + 1 == Task.objects.count()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"opis": "opis"},
+        {"status": "W_TOKU"},
+        {},
+    ],
+    ids=["Only Opis", "Only Status", "Empty payload"],
+)
+def test_fail_task_creation_without_name(anon_client, payload):
+    url = reverse("task-list")
+    count = Task.objects.count()
+
+    response = anon_client.post(url, payload)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
+    assert count == Task.objects.count(), "The task objects count changed"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("name", ["name1", "name2"])
+def test_create_task_with_only_name(anon_client, name):
+    url = reverse("task-list")
+    count = Task.objects.count()
+
+    response = anon_client.post(url, {"nazwa": name})
+
+    responseJson = response.json()
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    assert Task.objects.count() == count + 1, "Task creation didn't add new one"
+    assert responseJson["nazwa"] == name
+    assert responseJson["opis"] == ""
+
+
+@pytest.mark.django_db
+def test_task_status_is_new_if_not_provided(anon_client):
+    url = reverse("task-list")
+    count = Task.objects.count()
+
+    response = anon_client.post(
+        url,
+        {
+            "nazwa": "name",
+        },
+    )
+
+    responseJson = response.json()
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    assert Task.objects.count() == count + 1, "Task creation didn't add new one"
+    assert responseJson["status"] == "NOWY"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "task_status,should_create",
+    [
+        ("NOWY", True),
+        ("W_TOKU", True),
+        ("ROZWIĄZANY", True),
+        ("INVALID1", False),
+        ("INVALID2", False),
+    ],
+    ids=["NEW", "RUNNING", "FINISHED", "invalid_1", "invalid_2"],
+)
+def test_task_status_on_creation(anon_client, task_status, should_create):
+    url = reverse("task-list")
+    count = Task.objects.count()
+
+    response = anon_client.post(
+        url,
+        {
+            "nazwa": "name",
+            "status": task_status,
+        },
+    )
+
+    responseJson = response.json()
+
+    if should_create:
+        assert response.status_code == status.HTTP_201_CREATED, response.json()
+        assert Task.objects.count() == count + 1, "Task creation didn't add new one"
+        assert responseJson["status"] == task_status
+    else:
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
+        assert Task.objects.count() == count, "Failed create still creates new Task"
