@@ -4,10 +4,6 @@ from rest_framework import status
 from tasks.models import Task
 
 
-# TODO: tests that ID field of Task cannot be changed
-
-# TODO: tests for task updating
-
 # TODO: tests for tasks filtering
 
 # TODO: tests for tasks history, filter for history only for given tasks, get how the tasks looked like in given time and to whom it was assigned to
@@ -126,3 +122,48 @@ def test_task_status_on_creation(anon_client, task_status, should_create):
     else:
         assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
         assert Task.objects.count() == count, "Failed create still creates new Task"
+
+
+@pytest.mark.django_db
+def test_task_id_cannot_be_updated_in_partial_update(task, anon_client):
+    id = task.id
+    url = reverse("task-detail", kwargs={"pk": task.id})
+
+    new_id = task.id + 1
+    response = anon_client.patch(url, {"id": new_id})
+
+    task.refresh_from_db()
+
+    assert task.id == id, "id was changed after update"
+
+
+@pytest.mark.django_db
+def test_task_id_cannot_be_updated_in_full_update(task, anon_client):
+    id = task.id
+    url = reverse("task-detail", kwargs={"pk": task.id})
+
+    # Make sure it is different
+    payload = {
+        id: task.id + 1,
+        'nazwa': f'{task.nazwa}_new',
+        'opis': f'{task.opis}_new',
+        'status': Task.TASK_STATE[1][0],
+    }
+    response = anon_client.patch(url, payload)
+
+    task.refresh_from_db()
+    assert task.id == id, "id was changed after update"
+    assert task.nazwa == payload['nazwa'], "nazwa field was not updated in put"
+    assert task.opis == payload['opis'], "opis field was not updated in put"
+    assert task.status == payload['status'], "status field was not updated in put"
+
+
+
+def test_task_partial_update(task):
+    # TODO
+    pass
+
+def test_task_full_update(task):
+    # TODO:
+    pass
+

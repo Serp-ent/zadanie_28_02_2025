@@ -1,5 +1,6 @@
 import pytest
 from rest_framework.test import APIClient
+from tasks.models import Task
 from django.contrib.auth.models import User
 
 
@@ -21,3 +22,8 @@ def auth_client(user1):
     client = APIClient()
     client.force_authenticate(user1)
     return client
+
+
+@pytest.fixture
+def task():
+    return Task.objects.create(nazwa="name")
