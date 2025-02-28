@@ -1,6 +1,7 @@
 from django.urls import reverse
 import pytest
 from rest_framework import status
+from django.contrib.auth.models import User
 from tasks.models import Task
 
 
@@ -145,50 +146,163 @@ def test_task_id_cannot_be_updated_in_full_update(task, anon_client):
     # Make sure it is different
     payload = {
         id: task.id + 1,
-        'nazwa': f'{task.nazwa}_new',
-        'opis': f'{task.opis}_new',
-        'status': Task.TASK_STATE[1][0],
+        "nazwa": f"{task.nazwa}_new",
+        "opis": f"{task.opis}_new",
+        "status": Task.TASK_STATE[1][0],
     }
     response = anon_client.patch(url, payload)
 
     task.refresh_from_db()
     assert task.id == id, "id was changed after update"
-    assert task.nazwa == payload['nazwa'], "nazwa field was not updated in put"
-    assert task.opis == payload['opis'], "opis field was not updated in put"
-    assert task.status == payload['status'], "status field was not updated in put"
-
-
-
-@pytest.mark.django_db
-def test_task_partial_update(task):
-    # TODO
-    pass
-
-@pytest.mark.django_db
-def test_task_full_update(task):
-    # TODO:
-    pass
+    assert task.nazwa == payload["nazwa"], "nazwa field was not updated in put"
+    assert task.opis == payload["opis"], "opis field was not updated in put"
+    assert task.status == payload["status"], "status field was not updated in put"
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize('task', ['task', 'another_task'], indirect=True)
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("nazwa", "new_name"),
+        ("opis", "new_description"),
+        ("status", "W_TOKU"),
+    ],
+)
+def test_task_partial_update(anon_client, field, value):
+    task = Task.objects.create(nazwa="name")
+    url = reverse("task-detail", kwargs={"pk": task.id})
+
+    response = anon_client.patch(url, {field: value})
+    responseJson = response.json()
+
+    task.refresh_from_db()
+    assert response.status_code == status.HTTP_200_OK
+    assert responseJson[field] == value
+    assert (
+        getattr(task, field) == value
+    ), f"Field '{field}' was not updated with value '{value}'"
+
+
+@pytest.mark.django_db
+def test_task_partial_update_with_user(anon_client, user1):
+    task = Task.objects.create(nazwa="name")
+    url = reverse("task-detail", kwargs={"pk": task.id})
+
+    response = anon_client.patch(url, {"user": user1.id})
+    responseJson = response.json()
+
+    task.refresh_from_db()
+    assert response.status_code == status.HTTP_200_OK
+    assert responseJson["user"] == user1.id
+    assert task.user == user1
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("task_status", ["invalid1", "invalid2"])
+def test_partial_task_update_with_invalid_status(anon_client, task, task_status):
+    task = Task.objects.create(nazwa="name")
+    status_before = task.status
+    url = reverse("task-detail", kwargs={"pk": task.id})
+
+    response = anon_client.patch(url, {"status": task_status})
+    responseJson = response.json()
+
+    task.refresh_from_db()
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert any("not a valid" in msg for msg in responseJson["status"])
+    assert (
+        task.status == status_before
+    ), "task status was changed after invalid partial update status"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "update_data",
+    [
+        {
+            "nazwa": "updated_name",
+            "opis": "updated_description",
+            "status": "W_TOKU",
+        },
+        {
+            "nazwa": "updated_name",
+            "opis": "updated_description",
+            "status": "W_TOKU",
+        },
+    ],
+)
+def test_task_full_update(anon_client, task, update_data):
+    url = reverse("task-detail", kwargs={"pk": task.id})
+
+    response = anon_client.put(url, data=update_data)
+
+    response_json = response.json()
+    task.refresh_from_db()
+
+    assert response.status_code == status.HTTP_200_OK
+
+    assert response_json["nazwa"] == update_data["nazwa"]
+    assert response_json["opis"] == update_data["opis"]
+    assert response_json["status"] == update_data["status"]
+
+    assert task.nazwa == update_data["nazwa"]
+    assert task.opis == update_data["opis"]
+    assert task.status == update_data["status"]
+
+
+@pytest.mark.django_db
+def test_task_full_update_missing_required_fields(anon_client, task):
+    url = reverse("task-detail", kwargs={"pk": task.id})
+    invalid_data = {
+        # Missing required nazwa field
+        "opis": "new_description",
+        "status": "W_TOKU",
+    }
+
+    response = anon_client.put(url, data=invalid_data)
+    response_json = response.json()
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "nazwa" in response_json
+
+
+@pytest.mark.django_db
+def test_task_full_update_invalid_status(anon_client, task):
+    url = reverse("task-detail", kwargs={"pk": task.id})
+    invalid_data = {
+        "nazwa": "valid_name",
+        "opis": "valid_description",
+        "status": "INVALID_STATUS",
+    }
+
+    response = anon_client.put(url, data=invalid_data)
+    response_json = response.json()
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "status" in response_json
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("task", ["task", "another_task"], indirect=True)
 def test_task_detailed_view(task, anon_client):
-    url = reverse('task-detail', kwargs={'pk': task.id})
+    url = reverse("task-detail", kwargs={"pk": task.id})
 
     response = anon_client = anon_client.get(url)
     responseJson = response.json()
 
-    assert response.status_code == status.HTTP_200_OK, "Invalid resposne from the server"
-    assert responseJson['id'] == task.id
-    assert responseJson['nazwa'] == task.nazwa
-    assert responseJson['opis'] == task.opis
-    assert responseJson['status'] == task.status
-    assert responseJson['user'] == task.user
+    assert (
+        response.status_code == status.HTTP_200_OK
+    ), "Invalid resposne from the server"
+    assert responseJson["id"] == task.id
+    assert responseJson["nazwa"] == task.nazwa
+    assert responseJson["opis"] == task.opis
+    assert responseJson["status"] == task.status
+    assert responseJson["user"] == task.user
 
 
 @pytest.mark.django_db
 def test_task_delete_endpoint(task, anon_client):
-    url = reverse('task-detail', kwargs={'pk': task.id})
+    url = reverse("task-detail", kwargs={"pk": task.id})
     ntask_before = Task.objects.count()
 
     response = anon_client.delete(url)
