@@ -184,3 +184,15 @@ def test_task_detailed_view(task, anon_client):
     assert responseJson['opis'] == task.opis
     assert responseJson['status'] == task.status
     assert responseJson['user'] == task.user
+
+
+@pytest.mark.django_db
+def test_task_delete_endpoint(task, anon_client):
+    url = reverse('task-detail', kwargs={'pk': task.id})
+    ntask_before = Task.objects.count()
+
+    response = anon_client.delete(url)
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert ntask_before - 1 == Task.objects.count(), response.json()
+    assert not Task.objects.filter(pk=task.id).exists()
