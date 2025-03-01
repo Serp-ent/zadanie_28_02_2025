@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
+from simple_history.models import HistoricalRecords
 
 
 # Create your models here.
@@ -24,6 +25,9 @@ class Task(models.Model):
         blank=True,
     )
 
+    history = HistoricalRecords()
+
+    
     def save(self, *args, **kwargs):
         if self.status not in [state[0] for state in Task.TASK_STATE]:
             raise ValidationError("invalid status value")
