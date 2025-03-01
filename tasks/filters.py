@@ -23,10 +23,21 @@ class TaskFilter(django_filters.FilterSet):
 
     class Meta:
         model = Task
-        fields = ["id", "user", "status", 'nazwa', "username", "opis"]
+        fields = ["id", "user", "status", "nazwa", "username", "opis"]
 
     def filter_free_tasks(self, queryset, name, value):
         if value:
             return queryset.filter(user__isnull=True)
 
         return queryset.filter(user__isnull=False)
+
+
+class TaskHistoryFilter(django_filters.FilterSet):
+    class Meta:
+        model = Task.history.model
+        fields = {
+            "history_date": ["gte", "lte"],
+            "id": ["exact"],
+            "user": ["exact"],
+            "status": ["exact"],
+        }

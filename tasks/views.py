@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from tasks.serializers import TaskSerializer, TaskHistorySerializer
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
-from tasks.filters import TaskFilter
+from tasks.filters import TaskFilter, TaskHistoryFilter
 
 
 # Create your views here.
@@ -18,19 +18,22 @@ class TaskViewset(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaskFilter
 
+    def get_object(self):
+        instance =super().get_object()
+        as_of_value = self.request.query_params.get('as_of')
+        if as_of_value:
+            hisorical_instance = instance.history.as_of(as_of_value)
+            return hisorical_instance
+
+        return instance
+
 
 class TaskHistoryViewset(viewsets.ReadOnlyModelViewSet):
     serializer_class = TaskHistorySerializer
     queryset = Task.history.all().order_by("-history_date")
 
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = {
-        "history_date": ["gte", "lte"],
-        "history_type": ["exact"],
-        "id": ["exact"],
-        "user": ["exact"],
-        "status": ["exact"],
-    }
+    filterset_class = TaskHistoryFilter
 
     def get_queryset(self):
         return self.queryset.select_related("user")
