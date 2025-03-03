@@ -18,7 +18,7 @@ from tasks.serializers import (
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from tasks.filters import TaskFilter, TaskHistoryFilter
-from tasks.permissions import IsNotAuthenticated, IsOwnerOrAdmin
+from tasks.permissions import IsNotAuthenticated, IsOwnerOrAdmin, IsAdminOrReadOnly
 
 
 # Create your views here.
@@ -28,14 +28,29 @@ class TaskViewset(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaskFilter
 
+    def get_permissions(self):
+        permissions_classes = []
+        if self.action in ["list", "get"]:
+            permissions_classes = [permissions.AllowAny]
+        elif self.action in ["partial_update", "update", "destroy"]:
+            permissions_classes = [permissions.IsAdminUser]
+        elif self.action == "create":
+            permissions_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+        return [permission() for permission in permissions_classes]
+
     def get_object(self):
         instance = super().get_object()
+
         as_of_value = self.request.query_params.get("as_of")
         if as_of_value:
             hisorical_instance = instance.history.as_of(as_of_value)
             return hisorical_instance
 
         return instance
+
+    def perform_create(self, serializer):
+        return serializer.save(user=self.request.user)
 
 
 class TaskHistoryViewset(viewsets.ReadOnlyModelViewSet):
@@ -66,10 +81,9 @@ class UserViewset(
 
     def get_permissions(self):
         permissions_classes = []
-        if self.action in ['list', 'retrieve']:
+        if self.action in ["list", "retrieve"]:
             permissions_classes = [permissions.AllowAny]
         else:
             permissions_classes = [IsOwnerOrAdmin]
 
         return [permission() for permission in permissions_classes]
-    

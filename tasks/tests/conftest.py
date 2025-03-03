@@ -41,6 +41,10 @@ def admin_client(admin):
 def task():
     return Task.objects.create(nazwa="name")
 
+@pytest.fixture
+def free_task():
+    return Task.objects.create(nazwa="name")
+
 
 @pytest.fixture
 def another_task():
@@ -53,4 +57,13 @@ def register_payload():
         "username": "1",
         "email": "1@example.com",
         "password": "1",
+    }
+
+
+@pytest.fixture
+def task_payload():
+    return {
+        "nazwa": "taskName",
+        "opis": "opis1",
+        "status": "NOWY",
     }

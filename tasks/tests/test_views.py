@@ -7,35 +7,108 @@ from tasks.models import Task
 
 # TODO: tests for tasks history, filter for history only for given tasks, get how the tasks looked like in given time and to whom it was assigned to
 
-# TODO: tests for user permissions (Admin, IsAssignedToTask)
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "client_type,want_status",
+    [
+        ("admin_client", status.HTTP_200_OK),
+        ("anon_client",status.HTTP_403_FORBIDDEN),
+        ("auth_client",status.HTTP_403_FORBIDDEN),
+    ],
+)
+def test_only_admin_can_assign_user_to_existing_tasks(
+    request, client_type, user1, task, want_status
+):
+    client = request.getfixturevalue(client_type)
+    url = reverse("task-detail", kwargs={"pk": task.id})
+    original_user = task.user
 
-# TODO: admin have full access thus, he can assign task to user, or remove from user
-# TODO: user can pick any free task
-# TODO: only user that the task is assigned to can abandon task
-# TODO: only user that the task is assigned to can edit the task
+    response = client.patch(url, data={"user": user1.id})
+
+    task.refresh_from_db()
+
+    assert response.status_code == want_status
+
+    if want_status == status.HTTP_200_OK:
+        assert task.user == user1, "User was not assigned to the task"
+    else:
+        assert (
+            task.user == original_user
+        ), "User was assigned to task by unauthorized client"
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    "client",
-    ["auth_client", "anon_client"],
-    indirect=True,
+    "client_type,want_status",
+    [
+        ("admin_client", status.HTTP_200_OK),
+        ("anon_client",status.HTTP_403_FORBIDDEN),
+        ("auth_client",status.HTTP_403_FORBIDDEN),
+    ],
 )
-def test_anyone_can_create_tasks_with_every_field(client):
+def test_only_admin_can_remove_user_from_task(
+    request, client_type, user1, task, want_status
+):
+    task.user = user1
+    task.save()
+    client = request.getfixturevalue(client_type)
+    url = reverse("task-detail", kwargs={"pk": task.id})
+    original_user = task.user
+
+    response = client.patch(url, data={"user": ""})
+
+    task.refresh_from_db()
+
+    assert response.status_code == want_status, response.data
+
+    if want_status == status.HTTP_200_OK:
+        assert task.user == None, "User was removed from the task"
+    else:
+        assert (
+            task.user == original_user
+        ), "User was removed from the task by unauthorized client"
+
+
+
+@pytest.mark.django_db
+def test_task_is_automatically_assigned_to_user_on_creation(auth_client, user1):
+    url = reverse("task-list")
+    response = auth_client.post(url, data={"nazwa": "taskName"})
+
+    assert response.status_code == status.HTTP_201_CREATED, response.data
+    task = Task.objects.get(pk=response.data["id"])
+    assert (
+        task.user == user1
+    ), "User was not automatically assigned to the task on creation"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "client_type, want_status",
+    [
+        ("admin_client", status.HTTP_201_CREATED),
+        ("auth_client", status.HTTP_201_CREATED),
+        ("anon_client", status.HTTP_403_FORBIDDEN),
+    ],
+)
+def test_only_auth_users_can_create_tasks_with_every_field(
+    request, client_type, task_payload, want_status
+):
+    client = request.getfixturevalue(client_type)
     url = reverse("task-list")
     task_count = Task.objects.count()
 
     response = client.post(
         url,
-        data={
-            "nazwa": "taskName",
-            "opis": "opis1",
-            "status": "NOWY",
-        },
+        data=task_payload,
     )
 
-    assert response.status_code == status.HTTP_201_CREATED, response.json()
-    assert task_count + 1 == Task.objects.count()
+    assert response.status_code == want_status, response.data
+
+    if want_status == status.HTTP_201_CREATED:
+        assert Task.objects.count() == task_count + 1
+    else:
+        assert Task.objects.count() == task_count
 
 
 @pytest.mark.django_db
@@ -48,11 +121,11 @@ def test_anyone_can_create_tasks_with_every_field(client):
     ],
     ids=["Only Opis", "Only Status", "Empty payload"],
 )
-def test_fail_task_creation_without_name(anon_client, payload):
+def test_fail_task_creation_without_name(auth_client, payload):
     url = reverse("task-list")
     count = Task.objects.count()
 
-    response = anon_client.post(url, payload)
+    response = auth_client.post(url, payload)
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
     assert count == Task.objects.count(), "The task objects count changed"
@@ -60,11 +133,11 @@ def test_fail_task_creation_without_name(anon_client, payload):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("name", ["name1", "name2"])
-def test_create_task_with_only_name(anon_client, name):
+def test_create_task_with_only_name(auth_client, name):
     url = reverse("task-list")
     count = Task.objects.count()
 
-    response = anon_client.post(url, {"nazwa": name})
+    response = auth_client.post(url, {"nazwa": name})
 
     responseJson = response.json()
     assert response.status_code == status.HTTP_201_CREATED, response.json()
@@ -74,11 +147,11 @@ def test_create_task_with_only_name(anon_client, name):
 
 
 @pytest.mark.django_db
-def test_task_status_is_new_if_not_provided(anon_client):
+def test_task_status_is_new_if_not_provided(auth_client):
     url = reverse("task-list")
     count = Task.objects.count()
 
-    response = anon_client.post(
+    response = auth_client.post(
         url,
         {
             "nazwa": "name",
@@ -103,11 +176,11 @@ def test_task_status_is_new_if_not_provided(anon_client):
     ],
     ids=["NEW", "RUNNING", "FINISHED", "invalid_1", "invalid_2"],
 )
-def test_task_status_on_creation(anon_client, task_status, should_create):
+def test_task_status_on_creation(auth_client, task_status, should_create):
     url = reverse("task-list")
     count = Task.objects.count()
 
-    response = anon_client.post(
+    response = auth_client.post(
         url,
         {
             "nazwa": "name",
@@ -127,12 +200,12 @@ def test_task_status_on_creation(anon_client, task_status, should_create):
 
 
 @pytest.mark.django_db
-def test_task_id_cannot_be_updated_in_partial_update(task, anon_client):
+def test_task_id_cannot_be_updated_in_partial_update(task, auth_client):
     id = task.id
     url = reverse("task-detail", kwargs={"pk": task.id})
 
     new_id = task.id + 1
-    response = anon_client.patch(url, {"id": new_id})
+    response = auth_client.patch(url, {"id": new_id})
 
     task.refresh_from_db()
 
@@ -140,7 +213,7 @@ def test_task_id_cannot_be_updated_in_partial_update(task, anon_client):
 
 
 @pytest.mark.django_db
-def test_task_id_cannot_be_updated_in_full_update(task, anon_client):
+def test_task_id_cannot_be_updated_in_full_update(task, auth_client):
     id = task.id
     url = reverse("task-detail", kwargs={"pk": task.id})
 
@@ -151,7 +224,7 @@ def test_task_id_cannot_be_updated_in_full_update(task, anon_client):
         "opis": f"{task.opis}_new",
         "status": Task.TASK_STATE[1][0],
     }
-    response = anon_client.patch(url, payload)
+    response = auth_client.patch(url, payload)
 
     task.refresh_from_db()
     assert task.id == id, "id was changed after update"
@@ -169,11 +242,11 @@ def test_task_id_cannot_be_updated_in_full_update(task, anon_client):
         ("status", "W_TOKU"),
     ],
 )
-def test_task_partial_update(anon_client, field, value):
+def test_task_partial_update(auth_client, field, value):
     task = Task.objects.create(nazwa="name")
     url = reverse("task-detail", kwargs={"pk": task.id})
 
-    response = anon_client.patch(url, {field: value})
+    response = auth_client.patch(url, {field: value})
     responseJson = response.json()
 
     task.refresh_from_db()
@@ -185,11 +258,11 @@ def test_task_partial_update(anon_client, field, value):
 
 
 @pytest.mark.django_db
-def test_task_partial_update_with_user(anon_client, user1):
+def test_task_partial_update_with_user(auth_client, user1):
     task = Task.objects.create(nazwa="name")
     url = reverse("task-detail", kwargs={"pk": task.id})
 
-    response = anon_client.patch(url, {"user": user1.id})
+    response = auth_client.patch(url, {"user": user1.id})
     responseJson = response.json()
 
     task.refresh_from_db()
@@ -200,12 +273,12 @@ def test_task_partial_update_with_user(anon_client, user1):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("task_status", ["invalid1", "invalid2"])
-def test_partial_task_update_with_invalid_status(anon_client, task, task_status):
+def test_partial_task_update_with_invalid_status(auth_client, task, task_status):
     task = Task.objects.create(nazwa="name")
     status_before = task.status
     url = reverse("task-detail", kwargs={"pk": task.id})
 
-    response = anon_client.patch(url, {"status": task_status})
+    response = auth_client.patch(url, {"status": task_status})
     responseJson = response.json()
 
     task.refresh_from_db()
@@ -232,10 +305,10 @@ def test_partial_task_update_with_invalid_status(anon_client, task, task_status)
         },
     ],
 )
-def test_task_full_update(anon_client, task, update_data):
+def test_task_full_update(admin_client, task, update_data):
     url = reverse("task-detail", kwargs={"pk": task.id})
 
-    response = anon_client.put(url, data=update_data)
+    response = admin_client.put(url, data=update_data)
 
     response_json = response.json()
     task.refresh_from_db()
@@ -252,7 +325,7 @@ def test_task_full_update(anon_client, task, update_data):
 
 
 @pytest.mark.django_db
-def test_task_full_update_missing_required_fields(anon_client, task):
+def test_task_full_update_missing_required_fields(admin_client, task):
     url = reverse("task-detail", kwargs={"pk": task.id})
     invalid_data = {
         # Missing required nazwa field
@@ -260,7 +333,7 @@ def test_task_full_update_missing_required_fields(anon_client, task):
         "status": "W_TOKU",
     }
 
-    response = anon_client.put(url, data=invalid_data)
+    response = admin_client.put(url, data=invalid_data)
     response_json = response.json()
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -268,7 +341,7 @@ def test_task_full_update_missing_required_fields(anon_client, task):
 
 
 @pytest.mark.django_db
-def test_task_full_update_invalid_status(anon_client, task):
+def test_task_full_update_invalid_status(admin_client, task):
     url = reverse("task-detail", kwargs={"pk": task.id})
     invalid_data = {
         "nazwa": "valid_name",
@@ -276,7 +349,7 @@ def test_task_full_update_invalid_status(anon_client, task):
         "status": "INVALID_STATUS",
     }
 
-    response = anon_client.put(url, data=invalid_data)
+    response = admin_client.put(url, data=invalid_data)
     response_json = response.json()
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -285,10 +358,10 @@ def test_task_full_update_invalid_status(anon_client, task):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("task", ["task", "another_task"], indirect=True)
-def test_task_detailed_view(task, anon_client):
+def test_task_detailed_view(task, auth_client):
     url = reverse("task-detail", kwargs={"pk": task.id})
 
-    response = anon_client = anon_client.get(url)
+    response = auth_client = auth_client.get(url)
     responseJson = response.json()
 
     assert (
@@ -302,11 +375,11 @@ def test_task_detailed_view(task, anon_client):
 
 
 @pytest.mark.django_db
-def test_task_delete_endpoint(task, anon_client):
+def test_task_delete_endpoint(task, admin_client):
     url = reverse("task-detail", kwargs={"pk": task.id})
     ntask_before = Task.objects.count()
 
-    response = anon_client.delete(url)
+    response = admin_client.delete(url)
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert ntask_before - 1 == Task.objects.count(), response.json()
@@ -382,7 +455,7 @@ def test_user_can_update_own_profile(user1, auth_client):
 @pytest.mark.django_db
 def test_authorization_for_profile_update(anon_client):
     """anonymous and other user cannot update profile"""
-    user = User.objects.create_user( username="username")
+    user = User.objects.create_user(username="username")
     url = reverse("user-detail", kwargs={"pk": user.id})
     old_username = user.username
 
@@ -396,7 +469,7 @@ def test_authorization_for_profile_update(anon_client):
 @pytest.mark.django_db
 def test_authorization_for_other_user_profile_udpate(auth_client):
     """anonymous and other user cannot update profile"""
-    user = User.objects.create_user( username="username")
+    user = User.objects.create_user(username="username")
     url = reverse("user-detail", kwargs={"pk": user.id})
     old_username = user.username
 
@@ -486,3 +559,4 @@ def test_login_endpoint_is_available(anon_client, user1):
     )
 
     assert response.status_code == status.HTTP_200_OK
+
