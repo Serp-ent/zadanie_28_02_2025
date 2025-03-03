@@ -22,3 +22,7 @@ curl [...]
 - TODO: docker and docker compose
 
 - TODO: documentation about API usage, and simple examples using curl
+
+
+- TODO: Stworzona aplikacja powinna posiadać plik README.md, który będzie zawierać szczegółową instrukcję uruchomienia aplikacji.
+Powinna zawierać minimum informacje potrzebne do uruchomienia bazy danych i serwera aplikacji.

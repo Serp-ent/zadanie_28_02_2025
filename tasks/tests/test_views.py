@@ -11,6 +11,15 @@ from tasks.models import Task
 # TODO: tests for user register endpoint
 # TODO: tests for user permissions (Admin, IsAssignedToTask)
 
+# TODO: user should be able to update only own profile otherwise READ ONLY
+# TODO: admin should be able to update any profile
+
+# TODO: admin have full access thus, he can assign task to user, or remove from user
+# TODO: user can pick any free task
+# TODO: only user that the task is assigned to can abandon task
+# TODO: only user that the task is assigned to can edit the task
+
+
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(

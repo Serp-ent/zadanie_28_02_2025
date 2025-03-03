@@ -4,16 +4,16 @@ import os
 import django
 
 # This contains sample data for manual testing
-ash = User(username="ash", email="ash@example.com", password="ash")
-misty = User(username="misty", email="misty@example.com", password="misty")
-brock = User(username="brock", email="brock@example.com", password="brock")
+ash = User.objects.create_user(username="ash", email="ash@example.com", password="ash")
+misty = User.objects.create_user(username="misty", email="misty@example.com", password="misty")
+brock = User.objects.create_user(username="brock", email="brock@example.com", password="brock")
 users = [
     ash,
     misty,
     brock,
     *[
         # Generic Users
-        User(username=f"user{i}", password=f"user{i}")
+        User.objects.create_user(username=f"user{i}", password=f"user{i}")
         for i in range(5)
     ],
 ]
