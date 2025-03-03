@@ -43,11 +43,18 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
-    # TODO: require that the user is unauthenticated to register
+    password = serializers.CharField(write_only=True)
+
     class Meta:
         model = User
         fields = ["username", "password", "email"]
 
-    # TODO: test to make sure that the email is unique
+    def validate_email(self, value):
+        """Check if the email is aleady registerd"""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("This email is already in use")
+
+        return value
+
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)

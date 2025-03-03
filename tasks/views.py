@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from datetime import datetime
+from rest_framework import permissions
 from rest_framework import mixins
 from tasks.models import Task
 from django.contrib.auth.models import User
@@ -17,6 +18,7 @@ from tasks.serializers import (
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from tasks.filters import TaskFilter, TaskHistoryFilter
+from tasks.permissions import IsNotAuthenticated
 
 
 # Create your views here.
@@ -50,6 +52,7 @@ class TaskHistoryViewset(viewsets.ReadOnlyModelViewSet):
 class UserRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegisterSerializer
+    permission_classes = [IsNotAuthenticated]
 
 
 class UserViewset(

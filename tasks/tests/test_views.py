@@ -7,18 +7,12 @@ from tasks.models import Task
 
 # TODO: tests for tasks history, filter for history only for given tasks, get how the tasks looked like in given time and to whom it was assigned to
 
-# TODO: tests for user login endpoint
-# TODO: tests for user register endpoint
 # TODO: tests for user permissions (Admin, IsAssignedToTask)
-
-# TODO: user should be able to update only own profile otherwise READ ONLY
-# TODO: admin should be able to update any profile
 
 # TODO: admin have full access thus, he can assign task to user, or remove from user
 # TODO: user can pick any free task
 # TODO: only user that the task is assigned to can abandon task
 # TODO: only user that the task is assigned to can edit the task
-
 
 
 @pytest.mark.django_db
@@ -317,3 +311,92 @@ def test_task_delete_endpoint(task, anon_client):
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert ntask_before - 1 == Task.objects.count(), response.json()
     assert not Task.objects.filter(pk=task.id).exists()
+
+
+@pytest.mark.django_db
+def test_retrieving_user():
+    # TODO
+    pass
+
+
+@pytest.mark.django_db
+def test_list_users():
+    # TODO
+    pass
+
+
+@pytest.mark.django_db
+def test_user_can_update_own_profile():
+    # TODO
+    pass
+
+
+@pytest.mark.django_db
+def test_user_cannot_update_own_profile():
+    # TODO
+    pass
+
+
+@pytest.mark.django_db
+def test_admin_can_update_any_profile():
+    # TODO
+    pass
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('method, want', [
+    ('post', status.HTTP_201_CREATED),
+    ('get', status.HTTP_405_METHOD_NOT_ALLOWED),
+    ('put', status.HTTP_405_METHOD_NOT_ALLOWED),
+    ('patch', status.HTTP_405_METHOD_NOT_ALLOWED),
+    ('delete', status.HTTP_405_METHOD_NOT_ALLOWED),
+])
+def test_can_only_post_to_register(anon_client, register_payload, method, want):
+    url = reverse("register")
+
+    method = getattr(anon_client, method)
+    response = method(
+        url,
+        data=register_payload,
+    )
+
+    assert response.status_code == want
+
+
+@pytest.mark.django_db
+def test_register_endpoint(anon_client, register_payload):
+    url = reverse("register")
+
+    response = anon_client.post(
+        url,
+        data=register_payload,
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+
+
+@pytest.mark.django_db
+def test_user_cannot_be_authenticated_to_register(auth_client, register_payload):
+    url = reverse('register')
+    response = auth_client.post(url, data=register_payload)
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN, 'Authenticated users cannot register a new account'
+
+
+
+@pytest.mark.django_db
+def test_email_should_be_unique(anon_client, register_payload):
+    url = reverse('register')
+    User.objects.create_user(**register_payload)
+    register_payload['username'] = f'{register_payload['username']}_new' # usernames are unique by default
+
+    response = anon_client.post(url, register_payload)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, "user emails should be unique"
+
+@pytest.mark.django_db
+def test_login_endpoint_is_available(anon_client, user1):
+    """rest framework provides login endpoints just test if its connected"""
+    response = anon_client.post('/api/login/', data={'username': user1.username, 'password': user1.password})
+
+    assert response.status_code == status.HTTP_200_OK
