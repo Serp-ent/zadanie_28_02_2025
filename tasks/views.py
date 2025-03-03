@@ -18,7 +18,7 @@ from tasks.serializers import (
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from tasks.filters import TaskFilter, TaskHistoryFilter
-from tasks.permissions import IsNotAuthenticated
+from tasks.permissions import IsNotAuthenticated, IsOwnerOrAdmin
 
 
 # Create your views here.
@@ -63,3 +63,13 @@ class UserViewset(
 ):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+    def get_permissions(self):
+        permissions_classes = []
+        if self.action in ['list', 'retrieve']:
+            permissions_classes = [permissions.AllowAny]
+        else:
+            permissions_classes = [IsOwnerOrAdmin]
+
+        return [permission() for permission in permissions_classes]
+    

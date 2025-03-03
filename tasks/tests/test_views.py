@@ -314,43 +314,121 @@ def test_task_delete_endpoint(task, anon_client):
 
 
 @pytest.mark.django_db
-def test_retrieving_user():
-    # TODO
-    pass
+@pytest.mark.parametrize(
+    "client",
+    [
+        "anon_client",
+        "admin_client",
+        "auth_client",
+    ],
+    indirect=True,
+)
+def test_retrieving_user(client):
+    """Everybody should be able to retrieve user"""
+    user = User.objects.create(username="user1")
+    url = reverse("user-detail", kwargs={"pk": user.id})
+
+    response = client.get(url)
+    responseJson = response.json()
+
+    assert response.status_code == status.HTTP_200_OK
+    assert responseJson["username"] == user.username
 
 
 @pytest.mark.django_db
-def test_list_users():
-    # TODO
-    pass
+def test_retrieving_nonexisting_user(anon_client):
+    url = reverse("user-detail", kwargs={"pk": 999})
+
+    response = anon_client.get(url)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.django_db
-def test_user_can_update_own_profile():
-    # TODO
-    pass
+@pytest.mark.parametrize(
+    "client",
+    [
+        "anon_client",
+        "admin_client",
+        "auth_client",
+    ],
+    indirect=True,
+)
+def test_list_users(client):
+    url = reverse("user-list")
+    User.objects.create(username="user1")
+    User.objects.create(username="user2")
+
+    response = client.get(url)
+    responseJson = response.json()
+
+    assert response.status_code == status.HTTP_200_OK
+    assert len(responseJson) == 2
+    assert any("user1" == user["username"] for user in responseJson)
+    assert any("user2" == user["username"] for user in responseJson)
 
 
 @pytest.mark.django_db
-def test_user_cannot_update_own_profile():
-    # TODO
-    pass
+def test_user_can_update_own_profile(user1, auth_client):
+    url = reverse("user-detail", kwargs={"pk": user1.id})
+
+    response = auth_client.patch(url, data={"username": "changed_username"})
+
+    user1.refresh_from_db()
+    assert response.status_code == status.HTTP_200_OK
+    assert user1.username == "changed_username"
 
 
 @pytest.mark.django_db
-def test_admin_can_update_any_profile():
-    # TODO
-    pass
+def test_authorization_for_profile_update(anon_client):
+    """anonymous and other user cannot update profile"""
+    user = User.objects.create_user( username="username")
+    url = reverse("user-detail", kwargs={"pk": user.id})
+    old_username = user.username
+
+    response = anon_client.patch(url, data={"username": "changed_username"})
+
+    user.refresh_from_db()
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert user.username == old_username
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize('method, want', [
-    ('post', status.HTTP_201_CREATED),
-    ('get', status.HTTP_405_METHOD_NOT_ALLOWED),
-    ('put', status.HTTP_405_METHOD_NOT_ALLOWED),
-    ('patch', status.HTTP_405_METHOD_NOT_ALLOWED),
-    ('delete', status.HTTP_405_METHOD_NOT_ALLOWED),
-])
+def test_authorization_for_other_user_profile_udpate(auth_client):
+    """anonymous and other user cannot update profile"""
+    user = User.objects.create_user( username="username")
+    url = reverse("user-detail", kwargs={"pk": user.id})
+    old_username = user.username
+
+    response = auth_client.patch(url, data={"username": "changed_username"})
+
+    user.refresh_from_db()
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert user.username == old_username
+
+
+@pytest.mark.django_db
+def test_admin_can_update_any_profile(user1, admin_client):
+    url = reverse("user-detail", kwargs={"pk": user1.id})
+
+    response = admin_client.patch(url, data={"username": "changed_username"})
+
+    user1.refresh_from_db()
+    assert response.status_code == status.HTTP_200_OK
+    assert user1.username == "changed_username"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "method, want",
+    [
+        ("post", status.HTTP_201_CREATED),
+        ("get", status.HTTP_405_METHOD_NOT_ALLOWED),
+        ("put", status.HTTP_405_METHOD_NOT_ALLOWED),
+        ("patch", status.HTTP_405_METHOD_NOT_ALLOWED),
+        ("delete", status.HTTP_405_METHOD_NOT_ALLOWED),
+    ],
+)
 def test_can_only_post_to_register(anon_client, register_payload, method, want):
     url = reverse("register")
 
@@ -377,26 +455,34 @@ def test_register_endpoint(anon_client, register_payload):
 
 @pytest.mark.django_db
 def test_user_cannot_be_authenticated_to_register(auth_client, register_payload):
-    url = reverse('register')
+    url = reverse("register")
     response = auth_client.post(url, data=register_payload)
 
-    assert response.status_code == status.HTTP_403_FORBIDDEN, 'Authenticated users cannot register a new account'
-
+    assert (
+        response.status_code == status.HTTP_403_FORBIDDEN
+    ), "Authenticated users cannot register a new account"
 
 
 @pytest.mark.django_db
 def test_email_should_be_unique(anon_client, register_payload):
-    url = reverse('register')
+    url = reverse("register")
     User.objects.create_user(**register_payload)
-    register_payload['username'] = f'{register_payload['username']}_new' # usernames are unique by default
+    register_payload["username"] = (
+        f"{register_payload['username']}_new"  # usernames are unique by default
+    )
 
     response = anon_client.post(url, register_payload)
 
-    assert response.status_code == status.HTTP_400_BAD_REQUEST, "user emails should be unique"
+    assert (
+        response.status_code == status.HTTP_400_BAD_REQUEST
+    ), "user emails should be unique"
+
 
 @pytest.mark.django_db
 def test_login_endpoint_is_available(anon_client, user1):
     """rest framework provides login endpoints just test if its connected"""
-    response = anon_client.post('/api/login/', data={'username': user1.username, 'password': user1.password})
+    response = anon_client.post(
+        "/api/login/", data={"username": user1.username, "password": user1.password}
+    )
 
     assert response.status_code == status.HTTP_200_OK

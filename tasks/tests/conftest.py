@@ -18,6 +18,12 @@ def user1():
 
 
 @pytest.fixture
+@pytest.mark.django_db
+def admin():
+    return User.objects.create_superuser(username="admin", password="admin")
+
+
+@pytest.fixture
 def auth_client(user1):
     client = APIClient()
     client.force_authenticate(user1)
@@ -25,17 +31,26 @@ def auth_client(user1):
 
 
 @pytest.fixture
+def admin_client(admin):
+    client = APIClient()
+    client.force_authenticate(user=admin)
+    return client
+
+
+@pytest.fixture
 def task():
     return Task.objects.create(nazwa="name")
+
 
 @pytest.fixture
 def another_task():
     return Task.objects.create(nazwa="another_task")
 
+
 @pytest.fixture
 def register_payload():
     return {
-            "username": "1",
-            "email": "1@example.com",
-            'password': '1',
-        }
+        "username": "1",
+        "email": "1@example.com",
+        "password": "1",
+    }
