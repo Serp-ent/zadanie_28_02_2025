@@ -213,7 +213,7 @@ def test_task_id_cannot_be_updated_in_partial_update(task, auth_client):
 
 
 @pytest.mark.django_db
-def test_task_id_cannot_be_updated_in_full_update(task, auth_client):
+def test_task_id_cannot_be_updated_in_full_update(task, admin_client):
     id = task.id
     url = reverse("task-detail", kwargs={"pk": task.id})
 
@@ -224,7 +224,7 @@ def test_task_id_cannot_be_updated_in_full_update(task, auth_client):
         "opis": f"{task.opis}_new",
         "status": Task.TASK_STATE[1][0],
     }
-    response = auth_client.patch(url, payload)
+    response = admin_client.patch(url, payload)
 
     task.refresh_from_db()
     assert task.id == id, "id was changed after update"
@@ -242,11 +242,11 @@ def test_task_id_cannot_be_updated_in_full_update(task, auth_client):
         ("status", "W_TOKU"),
     ],
 )
-def test_task_partial_update(auth_client, field, value):
+def test_task_partial_update(admin_client, field, value):
     task = Task.objects.create(nazwa="name")
     url = reverse("task-detail", kwargs={"pk": task.id})
 
-    response = auth_client.patch(url, {field: value})
+    response = admin_client.patch(url, {field: value})
     responseJson = response.json()
 
     task.refresh_from_db()
@@ -258,11 +258,11 @@ def test_task_partial_update(auth_client, field, value):
 
 
 @pytest.mark.django_db
-def test_task_partial_update_with_user(auth_client, user1):
+def test_task_partial_update_with_user(admin_client, user1):
     task = Task.objects.create(nazwa="name")
     url = reverse("task-detail", kwargs={"pk": task.id})
 
-    response = auth_client.patch(url, {"user": user1.id})
+    response = admin_client.patch(url, {"user": user1.id})
     responseJson = response.json()
 
     task.refresh_from_db()
@@ -273,12 +273,12 @@ def test_task_partial_update_with_user(auth_client, user1):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("task_status", ["invalid1", "invalid2"])
-def test_partial_task_update_with_invalid_status(auth_client, task, task_status):
+def test_partial_task_update_with_invalid_status(admin_client, task, task_status):
     task = Task.objects.create(nazwa="name")
     status_before = task.status
     url = reverse("task-detail", kwargs={"pk": task.id})
 
-    response = auth_client.patch(url, {"status": task_status})
+    response = admin_client.patch(url, {"status": task_status})
     responseJson = response.json()
 
     task.refresh_from_db()
