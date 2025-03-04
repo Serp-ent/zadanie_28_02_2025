@@ -25,4 +25,5 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=postgres
 
+# TODO: fix volumes
 # volumes: postgres_data {}
