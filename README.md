@@ -15,8 +15,6 @@ source ./.venv/bin/activate
 pip install -r requirements.txt
 # Uruchomienie aplikacji oraz serwera bazy danych
 docker-compose up --build
-# stworzenie tabel w bazie danych
-docker exec -it zadanie_28_02_2025-mgazadanie-1 python manage.py migrate
 ```
 
 ## Korzystanie z Api
