@@ -2,6 +2,7 @@
 
 Zgodnie z treścią zadania pola w modelu Task są w języku polskim.
 
+- domyślnie jest tworzone konto administratora, dla którego login:hasło to admin:admin
 - zadania może tworzyć dowolny zalogowany użytkownik i przy jego tworzeniu domyślnie jest przypisany użytkownik który je tworzy
 - zadania może usuwać tylko administrator
 - zadania może edytować adminstrator i użytkownik przypisany do niego, ale tylko administrator może przypisywać innego użytkownika (przypisany użytkownik może zmieniać nazwe, opis ale nie pole 'user')
@@ -134,7 +135,7 @@ trzeba dodać do komendy curl flagę -u <username>:<password>
        curl -u ash:ash -X PATCH http://localhost:8000/api/tasks/4/ \
        -H "Content-Type: application/json" \
        -d '{
-            "status": "W_TOKU",
+            "status": "W_TOKU"
         }'
    ```
 
@@ -167,7 +168,7 @@ curl http://localhost:8000/api/tasks/1/\?as_of\=2025-03-04T15:52:23.997522Z
 ### Filtrowanie nieprzypisanych zadań
 
 ```shell
-curl http://localhost:8000/api/tasks/1/?unassigned=true
+curl http://localhost:8000/api/tasks/?unassigned=true
 ```
 
 ### Filtrowanie nowych zadań
@@ -244,11 +245,10 @@ curl http://localhost:8000/api/users/1/
 - aktualizować profil może tylko jego własciciel oraz admin
 
   ```shell
-  curl -X PUT http://localhost:8000/api/users/1/ \
+  curl -u admin:admin -X PATCH http://localhost:8000/api/users/1/ \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <your_token>" \
   -d '{
       "first_name": "NewName",
-      "email": "new@example.com"
+      "email": "new@examkple.com"
   }'
   ```
