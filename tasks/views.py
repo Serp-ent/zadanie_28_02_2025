@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from datetime import datetime
+from rest_framework.exceptions import NotFound
 from rest_framework import permissions
 from rest_framework import mixins
 from tasks.models import Task
@@ -58,8 +59,13 @@ class TaskViewset(viewsets.ModelViewSet):
 
         as_of_value = self.request.query_params.get("as_of")
         if as_of_value:
-            hisorical_instance = instance.history.as_of(as_of_value)
-            return hisorical_instance
+            try:
+                hisorical_instance = instance.history.as_of(as_of_value)
+                return hisorical_instance
+            except ValueError as e:
+                raise ValidationError({"as_of": str(e)})
+            except Exception as e:
+                raise NotFound("No historical record found.")
 
         return instance
 
