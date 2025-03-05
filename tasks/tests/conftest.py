@@ -18,6 +18,14 @@ def user1():
 
 
 @pytest.fixture
+def other_user():
+    return User.objects.create_user(
+        username="other_user",
+        password="other_user",
+    )
+
+
+@pytest.fixture
 @pytest.mark.django_db
 def admin():
     return User.objects.create_superuser(username="admin", password="admin")
@@ -40,6 +48,7 @@ def admin_client(admin):
 @pytest.fixture
 def task():
     return Task.objects.create(nazwa="name")
+
 
 @pytest.fixture
 def free_task():

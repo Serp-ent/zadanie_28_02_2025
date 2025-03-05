@@ -50,7 +50,12 @@ class TaskViewset(viewsets.ModelViewSet):
         return instance
 
     def perform_create(self, serializer):
-        return serializer.save(user=self.request.user)
+        user = self.request.user
+        if user.is_staff:
+            task_user = serializer.validated_data.get("user", user)
+        else:
+            task_user = user
+        serializer.save(user=task_user)
 
 
 class TaskHistoryViewset(viewsets.ReadOnlyModelViewSet):

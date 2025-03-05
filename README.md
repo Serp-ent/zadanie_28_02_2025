@@ -1,5 +1,9 @@
 # Zadanie
 
+Zgodnie z treścią zadania, zadanie posiada pola w języku polskim.
+
+// TODO: zadania mogą tworzyć administratorzy oraz zalogowaniu użytkownicy
+
 ## Uruchomienie serwera
 
 ```bash
@@ -47,6 +51,56 @@ Do testowania za pomocą komendy curl dodałem basic authentication, zatem logo
 ---
 
 ## Zadania
+
+### Dodawanie zadania
+
+1. Tworzenie zadania z o nazwie "Code refactor",
+
+   - domyślnie przypisany jest użytkownik, który utworzył te zadanie
+   - domyślnie nowe zadanie mają pole status równe "NOWY"
+   - login/hasło jest podane po fladze -u (tutaj admin:admin)
+
+   ```shell
+   curl -u admin:admin -X POST http://localhost:8000/api/tasks/ \
+   -H "Content-Type: application/json" \
+   -d '{
+       "nazwa": "Code refactor"
+       }'
+   ```
+
+2. Tworzenie zadania z przypisanym użytkownikiem, i ustalonym statusem
+
+   - przypisane do użytkownika o ID 10
+   - status o wartości "W_TOKU"
+   - tylko admin może tworzyć zadania z dowolnym przypisanym użytkownikiem
+
+   ```shell
+       curl -u admin:admin -X POST http://localhost:8000/api/tasks/ \
+       -H "Content-Type: application/json" \
+       -d '{
+           "nazwa": "Assigned Task",
+           "opis": "description of task",
+           "status": "W_TOKU",
+           "user": 10
+           }'
+   ```
+
+3. Tworzenie zadania jako dowolny użytkownik
+
+   - użytkownik jest automatycznie przypisany jako ten tworzący zadanie
+   - status o wartości "W_TOKU"
+   - tylko admin może tworzyć zadania z dowolnym przypisanym użytkownikiem
+   - jeśli użytkownik określi innego użytkownika to pole jest ignorowane, i zadanie jest przypisane do tworzącego
+
+   ```shell
+       curl -u ash:ash -X POST http://localhost:8000/api/tasks/ \
+       -H "Content-Type: application/json" \
+       -d '{
+           "nazwa": "Assigned Task",
+           "opis": "description of task",
+           "status": "W_TOKU"
+           }'
+   ```
 
 ### Listowanie wszystkich zadań
 

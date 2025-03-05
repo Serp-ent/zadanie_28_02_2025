@@ -12,7 +12,7 @@ from tasks.models import Task
     "client_type,want_status",
     [
         ("admin_client", status.HTTP_200_OK),
-        ("anon_client",status.HTTP_403_FORBIDDEN),
+        ("anon_client",status.HTTP_401_UNAUTHORIZED),
         ("auth_client",status.HTTP_403_FORBIDDEN),
     ],
 )
@@ -42,7 +42,7 @@ def test_only_admin_can_assign_user_to_existing_tasks(
     "client_type,want_status",
     [
         ("admin_client", status.HTTP_200_OK),
-        ("anon_client",status.HTTP_403_FORBIDDEN),
+        ("anon_client",status.HTTP_401_UNAUTHORIZED),
         ("auth_client",status.HTTP_403_FORBIDDEN),
     ],
 )
@@ -88,10 +88,10 @@ def test_task_is_automatically_assigned_to_user_on_creation(auth_client, user1):
     [
         ("admin_client", status.HTTP_201_CREATED),
         ("auth_client", status.HTTP_201_CREATED),
-        ("anon_client", status.HTTP_403_FORBIDDEN),
+        ("anon_client", status.HTTP_401_UNAUTHORIZED),
     ],
 )
-def test_only_auth_users_can_create_tasks_with_every_field(
+def test_only_auth_users_can_create_tasks_with(
     request, client_type, task_payload, want_status
 ):
     client = request.getfixturevalue(client_type)
@@ -110,6 +110,37 @@ def test_only_auth_users_can_create_tasks_with_every_field(
     else:
         assert Task.objects.count() == task_count
 
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "client_type, want_status",
+    [
+        ("admin_client", status.HTTP_201_CREATED),
+        ("auth_client", status.HTTP_201_CREATED),
+    ],
+)
+def test_auth_users_cannot_provide_other_user_as_payload(request, client_type, user1, other_user, task_payload, want_status):
+    client = request.getfixturevalue(client_type)
+    url = reverse("task-list")
+    task_count = Task.objects.count()
+    task_payload['user'] = other_user.id
+
+    response = client.post(
+        url,
+        data=task_payload,
+    )
+
+    assert response.status_code == want_status, response.data
+
+    task = Task.objects.get(id=response.data['id'])
+    if client_type == 'admin_client':
+        assert task.user == other_user
+    else:
+        assert task.user == user1, "For normal user, the user field in payload should be ignored"
+
+
+
+# TODO: only user assigned to the task can create the task but cannot leave the task alone
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
@@ -462,12 +493,12 @@ def test_authorization_for_profile_update(anon_client):
     response = anon_client.patch(url, data={"username": "changed_username"})
 
     user.refresh_from_db()
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert user.username == old_username
 
 
 @pytest.mark.django_db
-def test_authorization_for_other_user_profile_udpate(auth_client):
+def test_authorization_for_other_user_profile_update(auth_client):
     """anonymous and other user cannot update profile"""
     user = User.objects.create_user(username="username")
     url = reverse("user-detail", kwargs={"pk": user.id})
