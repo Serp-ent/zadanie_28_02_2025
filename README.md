@@ -1,8 +1,11 @@
 # Zadanie
 
-Zgodnie z treścią zadania, zadanie posiada pola w języku polskim.
+Zgodnie z treścią zadania pola w modelu Task są w języku polskim.
 
-// TODO: zadania mogą tworzyć administratorzy oraz zalogowaniu użytkownicy
+- zadania może tworzyć dowolny zalogowany użytkownik i przy jego tworzeniu domyślnie jest przypisany użytkownik który je tworzy
+- zadania może usuwać tylko administrator
+- zadania może edytować adminstrator i użytkownik przypisany do niego, ale tylko administrator może przypisywać innego użytkownika (przypisany użytkownik może zmieniać nazwe, opis ale nie pole 'user')
+- aby uzyskać snapshot zadania z dowolnego momentu, trzeba filtrować dla końcówki /api/tasks/?as_of=<timestamp>
 
 ## Uruchomienie serwera
 
@@ -123,16 +126,24 @@ Do testowania za pomocą komendy curl dodałem basic authentication, zatem logo
 
    - edycja zadania o id 4
    - autoryzacja za pomocą <login>:<hasło> tutaj ash:ash
-   - Użytkownik może edytować zadanie, ale nie może przypisać do niego innego użytkownika, lub NULL'a (sprawić że zadanie nie będzie przypisane do nikogo)
+   - aby edytować zadanie użytkownik musi być administratorem, lub być do niego przpyisanym
+   - Zwykły może edytować zadanie, ale nie może przypisać do niego innego użytkownika, lub NULL'a (sprawić że zadanie nie będzie przypisane do nikogo)
 
    ```shell
        curl -u ash:ash -X PATCH http://localhost:8000/api/tasks/4/ \
        -H "Content-Type: application/json" \
        -d '{
             "status": "W_TOKU",
-            "user": 10
         }'
    ```
+
+### Usuwanie zadania
+
+- Tylko administrator może usuwać zadania
+
+  ```shell
+      curl -u admin:admin -X DELETE http://localhost:8000/api/tasks/4/
+  ```
 
 ### Listowanie wszystkich zadań
 
@@ -140,7 +151,7 @@ Do testowania za pomocą komendy curl dodałem basic authentication, zatem logo
 curl http://localhost:8000/api/tasks/
 ```
 
-### Wyświetlanie zadania o id 1
+### Wyświetlanie zadania o id 1 (jego szczegółów)
 
 ```shell
 curl http://localhost:8000/api/tasks/1/
@@ -170,15 +181,33 @@ curl http://localhost:8000/api/tasks/?status=NOWY
 curl http://localhost:8000/api/tasks/?user=3
 ```
 
+### Filtrowanie zadań do których przypisany użytkownik zawiera w nicku 'ash'
+
+```shell
+curl http://localhost:8000/api/tasks/?username=ash
+```
+
+### Wyświetlenie zadań zawierających w opisie "gotowanie" (bez względu na wielkość liter)
+
+```shell
+curl -X GET http://localhost:8000/api/tasks/\?opis\=gotowanie
+```
+
+### Wyświetlenie zadań zawierających w nazwie "brock" (bez względu na wielkość liter)
+
+```shell
+curl -X GET http://localhost:8000/api/tasks/\?nazwa\=brock
+```
+
 ---
 
-### Wyświetlenie history wszystkich zadań
+### Wyświetlenie historii wszystkich zadań
 
 ```shell
 curl http://localhost:8000/api/history/
 ```
 
-### Wyświetlenie history dla zadania o ID 3
+### Wyświetlenie historii dla zadania o ID 3
 
 ```shell
 curl http://localhost:8000/api/history/?id=1
@@ -189,6 +218,9 @@ curl http://localhost:8000/api/history/?id=1
 ```shell
 curl http://localhost:8000/api/history/?user=3
 ```
+
+> [!NOTE]
+> Aby wyświetlic jak wyglądało zadanie w danym momencie, trzeba skorzystać z filtru as_of dla /api/tasks/:pk/
 
 ---
 
@@ -210,12 +242,12 @@ curl http://localhost:8000/api/users/1/
 
 - aktualizować profil może tylko jego własciciel oraz admin
 
-```shell
-curl -X PUT http://localhost:8000/api/users/1/ \
--H "Content-Type: application/json" \
--H "Authorization: Bearer <your_token>" \
--d '{
-    "first_name": "NewName",
-    "email": "new@example.com"
-}'
-```
+  ```shell
+  curl -X PUT http://localhost:8000/api/users/1/ \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_token>" \
+  -d '{
+      "first_name": "NewName",
+      "email": "new@example.com"
+  }'
+  ```

@@ -23,7 +23,7 @@ class UserTaskSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ["id", "nazwa", "opis", "status", 'user']
+        fields = ["id", "nazwa", "opis", "status", "user"]
 
 
 class TaskHistorySerializer(serializers.ModelSerializer):
@@ -32,6 +32,7 @@ class TaskHistorySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "history_date",
+            "history_type",
             "nazwa",
             "opis",
             "status",
