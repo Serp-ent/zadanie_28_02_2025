@@ -12,7 +12,7 @@ Zgodnie z treścią zadania pola w modelu Task są w języku polskim.
 ```bash
 # Sklonowanie repozytorium
 git clone https://github.com/Serp-ent/zadanie_28_02_2025.git
-cd zadanie_28_02_25
+cd zadanie_28_02_2025
 
 # Przygotowanie środowiska
 python -m venv .venv
