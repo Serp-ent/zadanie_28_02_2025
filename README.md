@@ -41,14 +41,15 @@ curl -X POST http://localhost:8000/api/register/ \
 ## Logowanie
 
 Do testowania za pomocą komendy curl dodałem basic authentication, zatem logowanie do pozyskania id sesji lub tokena jwt jest niepotrzebne.
+trzeba dodać do komendy curl flagę -u <username>:<password>
 
 ```shell
-# curl -X POST http://localhost:8000/api/login/ \
-# -H "Content-Type: application/json" \
-# -d '{
-#     "username": "username",
-#     "password": "user_password",
-# }'
+ curl -X POST http://localhost:8000/api/login/ \
+ -H "Content-Type: application/json" \
+ -d '{
+     "username": "username",
+     "password": "user_password",
+}'
 ```
 
 ---
