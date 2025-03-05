@@ -3,7 +3,7 @@ from tasks.models import Task
 from django.contrib.auth.models import User
 
 
-class TaskSerializer(serializers.ModelSerializer):
+class AdminTaskSerializer(serializers.ModelSerializer):
     opis = serializers.CharField(required=False)
 
     class Meta:
@@ -15,6 +15,15 @@ class TaskSerializer(serializers.ModelSerializer):
             "status",
             "user",
         ]
+
+
+class UserTaskSerializer(serializers.ModelSerializer):
+    opis = serializers.CharField(required=False)
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Task
+        fields = ["id", "nazwa", "opis", "status", 'user']
 
 
 class TaskHistorySerializer(serializers.ModelSerializer):

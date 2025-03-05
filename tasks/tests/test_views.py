@@ -7,13 +7,14 @@ from tasks.models import Task
 
 # TODO: tests for tasks history, filter for history only for given tasks, get how the tasks looked like in given time and to whom it was assigned to
 
+
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "client_type,want_status",
     [
         ("admin_client", status.HTTP_200_OK),
-        ("anon_client",status.HTTP_401_UNAUTHORIZED),
-        ("auth_client",status.HTTP_403_FORBIDDEN),
+        ("anon_client", status.HTTP_401_UNAUTHORIZED),
+        ("auth_client", status.HTTP_403_FORBIDDEN),
     ],
 )
 def test_only_admin_can_assign_user_to_existing_tasks(
@@ -42,8 +43,9 @@ def test_only_admin_can_assign_user_to_existing_tasks(
     "client_type,want_status",
     [
         ("admin_client", status.HTTP_200_OK),
-        ("anon_client",status.HTTP_401_UNAUTHORIZED),
-        ("auth_client",status.HTTP_403_FORBIDDEN),
+        ("anon_client", status.HTTP_401_UNAUTHORIZED),
+        # But for currently assigned user, the user field is ignored
+        ("auth_client", status.HTTP_200_OK), 
     ],
 )
 def test_only_admin_can_remove_user_from_task(
@@ -62,12 +64,14 @@ def test_only_admin_can_remove_user_from_task(
     assert response.status_code == want_status, response.data
 
     if want_status == status.HTTP_200_OK:
-        assert task.user == None, "User was removed from the task"
+        if client_type == 'auth_client':
+            assert task.user == user1, "User field was not ignored for currently assigned user"
+        else:
+            assert task.user == None, "User was removed from the task"
     else:
         assert (
             task.user == original_user
         ), "User was removed from the task by unauthorized client"
-
 
 
 @pytest.mark.django_db
@@ -119,11 +123,13 @@ def test_only_auth_users_can_create_tasks_with(
         ("auth_client", status.HTTP_201_CREATED),
     ],
 )
-def test_auth_users_cannot_provide_other_user_as_payload(request, client_type, user1, other_user, task_payload, want_status):
+def test_auth_users_cannot_provide_other_user_as_payload(
+    request, client_type, user1, other_user, task_payload, want_status
+):
     client = request.getfixturevalue(client_type)
     url = reverse("task-list")
     task_count = Task.objects.count()
-    task_payload['user'] = other_user.id
+    task_payload["user"] = other_user.id
 
     response = client.post(
         url,
@@ -132,15 +138,75 @@ def test_auth_users_cannot_provide_other_user_as_payload(request, client_type, u
 
     assert response.status_code == want_status, response.data
 
-    task = Task.objects.get(id=response.data['id'])
-    if client_type == 'admin_client':
+    task = Task.objects.get(id=response.data["id"])
+    if client_type == "admin_client":
         assert task.user == other_user
     else:
-        assert task.user == user1, "For normal user, the user field in payload should be ignored"
+        assert (
+            task.user == user1
+        ), "For normal user, the user field in payload should be ignored"
 
 
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "client_type, want_status",
+    [
+        ("auth_client", status.HTTP_200_OK),
+        ("other_auth_client", status.HTTP_403_FORBIDDEN),
+    ],
+)
+def test_only_user_assigned_to_the_task_can_edit_task(
+    request, want_status, task_payload, client_type, user1
+):
+    """The user assigned can edit the task, but cannot assign other user"""
+    client = request.getfixturevalue(client_type)
+    task = Task.objects.create(nazwa="newlyCreatedTaskName", user=user1)
+    url = reverse("task-detail", kwargs={"pk": task.id})
+    old_opis = task.opis
+    old_nazwa = task.nazwa
 
-# TODO: only user assigned to the task can create the task but cannot leave the task alone
+    response = client.patch(
+        url,
+        data=task_payload,
+    )
+
+    task.refresh_from_db()
+    assert response.status_code == want_status, response.data
+    if response.status_code == status.HTTP_200_OK:
+        assert task.opis == task_payload["opis"]
+        assert task.nazwa == task_payload["nazwa"]
+        assert task.status == task_payload["status"]
+    else:
+        assert task.opis == old_opis
+        assert task.nazwa == old_nazwa
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "client_type, want_status",
+    [
+        ("auth_client", status.HTTP_200_OK),
+        ("other_auth_client", status.HTTP_403_FORBIDDEN),
+    ],
+)
+def test_plain_user_cannot_change_user_assigned_to_task(
+    request, client_type, user1, want_status
+):
+    """The user assigned can edit the task, but cannot assign other user"""
+    client = request.getfixturevalue(client_type)
+    task = Task.objects.create(nazwa="newlyCreatedTaskName", user=user1)
+    url = reverse("task-detail", kwargs={"pk": task.id})
+
+    response = client.patch(
+        url,
+        data={"user": ""},
+    )
+
+    task.refresh_from_db()
+    assert response.status_code == want_status, response.data
+    # The user field is ignored
+    assert task.user == user1, 'User assigned was changed by regular user'
+
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
@@ -590,4 +656,3 @@ def test_login_endpoint_is_available(anon_client, user1):
     )
 
     assert response.status_code == status.HTTP_200_OK
-

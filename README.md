@@ -102,6 +102,38 @@ Do testowania za pomocą komendy curl dodałem basic authentication, zatem logo
            }'
    ```
 
+### Edycja zadania
+
+1. Edycja jako admin
+
+   - Administrator może dowolnie edytować zadania
+   - przypisanie do zadania 4
+   - przypisanie użytkownika o id 10
+
+   ```shell
+       curl -u admin:admin -X PATCH http://localhost:8000/api/tasks/4/ \
+       -H "Content-Type: application/json" \
+       -d '{
+            "status": "W_TOKU",
+            "user": 10
+        }'
+   ```
+
+2. Edycja jako zwykły użytkownik
+
+   - edycja zadania o id 4
+   - autoryzacja za pomocą <login>:<hasło> tutaj ash:ash
+   - Użytkownik może edytować zadanie, ale nie może przypisać do niego innego użytkownika, lub NULL'a (sprawić że zadanie nie będzie przypisane do nikogo)
+
+   ```shell
+       curl -u ash:ash -X PATCH http://localhost:8000/api/tasks/4/ \
+       -H "Content-Type: application/json" \
+       -d '{
+            "status": "W_TOKU",
+            "user": 10
+        }'
+   ```
+
 ### Listowanie wszystkich zadań
 
 ```shell

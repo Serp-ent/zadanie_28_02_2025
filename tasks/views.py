@@ -10,7 +10,8 @@ from rest_framework import generics
 from rest_framework.request import Request
 from rest_framework.response import Response
 from tasks.serializers import (
-    TaskSerializer,
+    AdminTaskSerializer,
+    UserTaskSerializer,
     TaskHistorySerializer,
     UserSerializer,
     UserRegisterSerializer,
@@ -18,21 +19,34 @@ from tasks.serializers import (
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from tasks.filters import TaskFilter, TaskHistoryFilter
-from tasks.permissions import IsNotAuthenticated, IsOwnerOrAdmin, IsAdminOrReadOnly
+from tasks.permissions import (
+    IsNotAuthenticated,
+    IsOwnerOrAdmin,
+    IsAdminOrReadOnly,
+    IsAdminOrAssignedUser,
+)
 
 
 # Create your views here.
 class TaskViewset(viewsets.ModelViewSet):
     queryset = Task.objects.all()
-    serializer_class = TaskSerializer
+    serializer_class = AdminTaskSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaskFilter
 
+    def get_serializer_class(self):
+        if self.request.user.is_staff:
+            return AdminTaskSerializer
+        return UserTaskSerializer
+
     def get_permissions(self):
         permissions_classes = []
-        if self.action in ["list", "get"]:
+
+        if self.action in ["list", "retrieve"]:
             permissions_classes = [permissions.AllowAny]
-        elif self.action in ["partial_update", "update", "destroy"]:
+        elif self.action in ["partial_update", "update"]:
+            permissions_classes = [IsAdminOrAssignedUser]
+        elif self.action == "destroy":
             permissions_classes = [permissions.IsAdminUser]
         elif self.action == "create":
             permissions_classes = [permissions.IsAuthenticatedOrReadOnly]

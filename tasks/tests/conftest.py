@@ -37,6 +37,12 @@ def auth_client(user1):
     client.force_authenticate(user1)
     return client
 
+@pytest.fixture
+def other_auth_client(other_user):
+    client = APIClient()
+    client.force_authenticate(other_user)
+    return client
+
 
 @pytest.fixture
 def admin_client(admin):

@@ -22,3 +22,11 @@ class IsAdminOrReadOnly(permissions.BasePermission):
             return True
         
         return request.user and request.user.is_staff
+
+class IsAdminOrAssignedUser(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        return user.is_staff or obj.user == request.user
